@@ -27,14 +27,21 @@ without knowing anything about terminals.
 
 ## Install
 
-Download the binary for your platform from the
+```sh
+brew install mopi1402/tap/terminal-scheme-info        # macOS, Linux
+curl -fsSL https://raw.githubusercontent.com/mopi1402/terminal-scheme-info/main/install.sh | sh   # any Unix
+cargo install --path .                                 # from a checkout
+```
+
+```powershell
+scoop bucket add mopi1402 https://github.com/mopi1402/scoop-bucket   # Windows
+scoop install terminal-scheme-info
+```
+
+Or take the archive for your platform from the
 [releases page](https://github.com/mopi1402/terminal-scheme-info/releases)
 (Linux x86_64 and aarch64, static; macOS Intel and Apple silicon; Windows
-x86_64 and arm64), put it somewhere on your `PATH`, or build it yourself:
-
-```sh
-cargo install --path .
-```
+x86_64 and arm64) and put the binary on your `PATH`.
 
 Then add the line to your shell startup file:
 

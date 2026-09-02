@@ -78,3 +78,32 @@ jobs:
       - run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
+
+  packages:
+    name: homebrew tap and scoop bucket
+    needs: publish
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - run: cd dist && sha256sum * > SHA256SUMS
+      - run: scripts/package-manifests.sh "${GITHUB_REF_NAME#v}" dist/SHA256SUMS out
+      - name: push to the tap and the bucket
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "::warning::TAP_TOKEN is not set: run scripts/package-manifests.sh and update homebrew-tap and scoop-bucket by hand"
+            exit 0
+          fi
+          git clone -q "https://x-access-token:$TAP_TOKEN@github.com/mopi1402/homebrew-tap.git"
+          git clone -q "https://x-access-token:$TAP_TOKEN@github.com/mopi1402/scoop-bucket.git"
+          cp out/terminal-scheme-info.rb homebrew-tap/Formula/
+          cp out/terminal-scheme-info.json scoop-bucket/bucket/
+          for repo in homebrew-tap scoop-bucket; do
+            git -C "$repo" -c user.name="Pierre Moati" -c user.email="pierre@moati.fr" commit -qam "terminal-scheme-info $GITHUB_REF_NAME"
+            git -C "$repo" push -q
+          done
