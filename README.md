@@ -73,6 +73,27 @@ nothing that speaks VT at all.
 is below 50, `light` otherwise. Without a background answer it falls back to
 the inverted foreground.
 
+## Terminals
+
+Checked with a real query, on macOS, through `scripts/try-terminals.sh`
+(the time is the whole exchange, dominated by how fast the terminal answers):
+
+| Terminal | Answers OSC 10/11 | Time |
+| --- | --- | --- |
+| Alacritty 0.17 | yes | 3 ms |
+| Tabby 1.0 | yes | 5 ms |
+| Ghostty | yes | 7 ms |
+| WezTerm 20240203 | yes | 7 ms |
+| Terminal.app (macOS 26) | yes | 10 ms |
+| iTerm2 | yes | 21 ms |
+| kitty 0.48 | yes | 63 ms |
+| Rio 0.5 | yes | 73 ms |
+| Hyper 3.4 | yes | 168 ms |
+| Contour 0.7 | yes | 310 ms |
+| Windows Terminal 1.22+ | yes, per its release notes | not yet measured |
+| Wave | not yet checked (it replaces ZDOTDIR, the script cannot drive it) | |
+| tmux, screen | no: DA1 only, the variables stay unset inside | |
+
 ## Limits
 
 - The values are those of the terminal when the shell started. A theme change
@@ -93,6 +114,10 @@ cargo test
 check in a pseudo-terminal: it plays the terminal's part, answers the queries
 like xterm would, and checks the output, that nothing is echoed back, that the
 tty mode is restored, and how long the exchange takes (Unix only).
+
+`scripts/try-terminals.sh` (macOS) runs one real query in every installed
+terminal emulator and prints what each one answered; that is where the table
+above comes from.
 
 The Windows implementation is written against the Win32 documentation and has
 not yet been run on a Windows machine.
