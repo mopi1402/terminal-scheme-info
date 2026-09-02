@@ -75,32 +75,65 @@ the inverted foreground.
 
 ## Terminals
 
-Checked with a real query, on macOS, through `scripts/try-terminals.sh`
-(the time is the whole exchange, dominated by how fast the terminal answers):
+One real query in each terminal, through `scripts/try-terminals.sh` (macOS)
+and `scripts/try-terminals-linux.sh` (Linux, run by the `terminals` workflow
+on GitHub's runners under Xvfb). The time is the whole exchange and mostly
+measures how fast the terminal answers.
 
-| Terminal | Answers OSC 10/11 | Time |
-| --- | --- | --- |
-| Alacritty 0.17 | yes | 3 ms |
-| Tabby 1.0 | yes | 5 ms |
-| Ghostty | yes | 7 ms |
-| WezTerm 20240203 | yes | 7 ms |
-| Terminal.app (macOS 26) | yes | 10 ms |
-| iTerm2 | yes | 21 ms |
-| kitty 0.48 | yes | 63 ms |
-| Rio 0.5 | yes | 73 ms |
-| Hyper 3.4 | yes | 168 ms |
-| Contour 0.7 | yes | 310 ms |
-| Windows Terminal 1.22+ | yes, per its release notes | not yet measured |
-| Wave | not yet checked (it replaces ZDOTDIR, the script cannot drive it) | |
-| tmux, screen | no: DA1 only, the variables stay unset inside | |
+### macOS 26.2
+
+| Terminal | Version | Answers OSC 10/11 | Time |
+| --- | --- | --- | --- |
+| Alacritty | 0.17.0 | yes | 3 ms |
+| Tabby | 1.0.235 | yes | 5 ms |
+| Ghostty | 1.3.1 | yes | 7 ms |
+| WezTerm | 20240203-110809 | yes | 7 ms |
+| Terminal.app | 2.15 | yes | 10 to 26 ms |
+| iTerm2 | 3.6.11 | yes | 21 ms |
+| kitty | 0.48.2 | yes | 63 ms |
+| Rio | 0.5.27 | yes | 73 ms |
+| Hyper | 3.4.1 | yes | 168 ms |
+| Contour | 0.7.0 | yes | 310 ms |
+| Wave | 0.14.5 | not checked: it replaces ZDOTDIR, the script cannot drive it | |
+
+### Linux
+
+Ubuntu 24.04.4 LTS, GitHub runner, Xvfb with software rendering
+(`terminals` workflow, run 33684398426).
+
+| Terminal | Version | Answers OSC 10/11 | Time |
+| --- | --- | --- | --- |
+| xterm | 390 | yes | 2 ms |
+| Konsole | 23.08.5 | yes | 2 ms |
+| rxvt-unicode | 9.31 | yes | 2 ms |
+| st (suckless) | 0.9 | yes | 2 ms |
+| LXTerminal | 0.4.0 | yes | 2 ms |
+| WezTerm | 20240203-110809 | yes | 5 ms |
+| GNOME Terminal | 3.52.0 | yes | 9 ms |
+| MATE Terminal | 1.26.1 | yes | 10 ms |
+| Terminator | 2.1.3 | yes | 16 ms |
+| xfce4-terminal | 1.1.3 | yes | 22 ms |
+| Alacritty | 0.13.2 | yes | 140 ms (software OpenGL) |
+| Tilix | 1.9.6 | yes | 199 ms |
+| QTerminal | 1.4.0 | no: answers DA1 only, the variables stay unset | 29 ms |
+| kitty | 0.32.2 | no answer within the 500 ms timeout under Xvfb; answers in 63 ms on macOS | 502 ms |
+
+### Windows
+
+| Terminal | Version | Answers OSC 10/11 | Time |
+| --- | --- | --- | --- |
+| Windows Terminal | 1.22 and later | yes, per its release notes | not yet measured |
+
+### Multiplexers
+
+tmux and screen answer DA1 but not OSC 10/11: inside them the variables stay
+unset. Start the multiplexer from a shell that already has them and they are
+inherited.
 
 ## Limits
 
 - The values are those of the terminal when the shell started. A theme change
   is seen by the next session.
-- Multiplexers (tmux, screen) answer DA1 but usually not OSC 11: inside them
-  the variables are not set. Start the multiplexer from a shell that already
-  has them and they are inherited.
 - Keys typed during the few milliseconds of the query are consumed by it.
 
 ## Development

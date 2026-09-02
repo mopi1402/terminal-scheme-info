@@ -58,7 +58,6 @@ try terminator "Terminator" terminator terminator -e "sh '$probe' terminator"
 try tilix "Tilix" tilix tilix -e "sh '$probe' tilix"
 try urxvt "rxvt-unicode" rxvt-unicode urxvt -e sh "$probe" urxvt
 try st "st (suckless)" stterm st -e sh "$probe" st
-try sakura "sakura" sakura sakura -x sh "$probe" sakura
 try lxterminal "LXTerminal" lxterminal lxterminal -e "sh '$probe' lxterminal"
 try mate-terminal "MATE Terminal" mate-terminal mate-terminal --disable-factory -e "sh '$probe' mate-terminal"
 try qterminal "QTerminal" qterminal qterminal -e "sh '$probe' qterminal"
