@@ -77,13 +77,13 @@ the inverted foreground.
 
 ```sh
 cargo build --release
-cargo test                                                   # unit tests
-python3 tests/fake_terminal.py target/release/terminal-scheme-info   # end to end, in a pty
+cargo test
 ```
 
-The pty harness plays the terminal's part: it answers the queries like xterm
-would and checks the output, that nothing is echoed back, that the tty mode is
-restored, and how long the exchange takes.
+`cargo test` runs the unit tests and `tests/fake_terminal.rs`, an end-to-end
+check in a pseudo-terminal: it plays the terminal's part, answers the queries
+like xterm would, and checks the output, that nothing is echoed back, that the
+tty mode is restored, and how long the exchange takes (Unix only).
 
 The Windows implementation is written against the Win32 documentation and has
 not yet been run on a Windows machine.
