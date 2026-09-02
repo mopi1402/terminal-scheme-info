@@ -1,9 +1,9 @@
 name: terminals
 
-# Runs one real query inside the popular Linux terminal emulators, under Xvfb
-# on a GitHub runner, and writes the table to the run summary. macOS terminals
-# are measured locally with scripts/try-terminals.sh: the macOS and Windows
-# runners have no graphical session a terminal emulator can start in.
+# Runs one real query inside the popular terminal emulators on GitHub runners:
+# Linux under Xvfb, Windows in the runner's interactive session. The tables go
+# to the run summary. macOS terminals are measured locally with
+# scripts/try-terminals.sh (Terminal.app would not run the probe on the runner).
 
 on:
   workflow_dispatch:
@@ -36,3 +36,33 @@ jobs:
         with:
           name: terminals-linux
           path: terminals-linux.md
+
+  windows:
+    name: windows terminals
+    runs-on: windows-2025
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - run: cargo build --release --locked
+      - name: install terminals
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod https://api.github.com/repos/microsoft/terminal/releases/latest -Headers @{ Authorization = "Bearer ${{ github.token }}" }
+          $asset = $release.assets | Where-Object { $_.name -like 'Microsoft.WindowsTerminal_*_x64.zip' } | Select-Object -First 1
+          Invoke-WebRequest $asset.browser_download_url -OutFile wt.zip
+          Expand-Archive wt.zip -DestinationPath wt
+          $wt = (Get-ChildItem wt -Recurse -Filter wt.exe | Select-Object -First 1).FullName
+          New-Item -ItemType File -Path (Join-Path (Split-Path $wt) '.portable') | Out-Null
+          "WT=$wt" >> $env:GITHUB_ENV
+          choco install -y --no-progress alacritty wezterm
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::chocolatey install failed"; $global:LASTEXITCODE = 0 }
+      - name: probe
+        shell: pwsh
+        timeout-minutes: 5
+        run: pwsh scripts/try-terminals.ps1 -WindowsTerminal $env:WT | Tee-Object terminals-windows.md
+      - shell: pwsh
+        run: Get-Content terminals-windows.md >> $env:GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: terminals-windows
+          path: terminals-windows.md
