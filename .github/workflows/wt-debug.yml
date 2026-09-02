@@ -12,6 +12,7 @@ jobs:
           "session id: $((Get-Process -Id $PID).SessionId)  interactive: $([Environment]::UserInteractive)"
           "user: $env:USERNAME"
           query session 2>&1 | Out-String
+          $global:LASTEXITCODE = 0
       - name: install Windows Terminal (portable build)
         shell: pwsh
         run: |
