@@ -1,0 +1,59 @@
+name: wt-debug
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - name: session
+        shell: pwsh
+        run: |
+          "session id: $((Get-Process -Id $PID).SessionId)  interactive: $([Environment]::UserInteractive)"
+          "user: $env:USERNAME"
+          query session 2>&1 | Out-String
+      - name: install Windows Terminal (portable build)
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod https://api.github.com/repos/microsoft/terminal/releases/latest -Headers @{ Authorization = "Bearer ${{ github.token }}" }
+          $asset = $release.assets | Where-Object { $_.name -like 'Microsoft.WindowsTerminal_*_x64.zip' } | Select-Object -First 1
+          "asset: $($asset.name)"
+          Invoke-WebRequest $asset.browser_download_url -OutFile wt.zip
+          Expand-Archive wt.zip -DestinationPath wt
+          $dir = (Get-ChildItem wt -Recurse -Filter wt.exe | Select-Object -First 1).DirectoryName
+          New-Item -ItemType File -Path (Join-Path $dir '.portable') | Out-Null
+          Get-ChildItem $dir | Select-Object -ExpandProperty Name | Out-String
+          "WTDIR=$dir" >> $env:GITHUB_ENV
+      - name: control, conhost window
+        shell: pwsh
+        run: |
+          $out = "$PWD\control.txt"
+          Start-Process conhost.exe -ArgumentList "pwsh -NoProfile -Command `"Set-Content -Path '$out' -Value ok`""
+          Start-Sleep 5
+          if (Test-Path $out) { "conhost: a console window can run a shell here" } else { "conhost: no result" }
+      - name: variant 1, wt.exe with a plain command line
+        shell: pwsh
+        run: |
+          $out = "$PWD\v1.txt"
+          $p = Start-Process "$env:WTDIR\wt.exe" -ArgumentList "pwsh -NoProfile -Command `"Set-Content -Path '$out' -Value ok`"" -PassThru
+          Start-Sleep 10
+          "wt.exe exit code: $($p.ExitCode)"
+          Get-Process | Where-Object { $_.Name -like '*Terminal*' -or $_.Name -eq 'OpenConsole' } | Format-Table Name, Id, MainWindowTitle | Out-String
+          if (Test-Path $out) { "v1: ok" } else { "v1: no result" }
+      - name: variant 2, WindowsTerminal.exe directly
+        shell: pwsh
+        run: |
+          $out = "$PWD\v2.txt"
+          $exe = Join-Path $env:WTDIR 'WindowsTerminal.exe'
+          $p = Start-Process $exe -ArgumentList "pwsh -NoProfile -Command `"Set-Content -Path '$out' -Value ok`"" -PassThru -RedirectStandardError wt-err.txt -RedirectStandardOutput wt-out.txt
+          Start-Sleep 10
+          "exit code: $($p.ExitCode)"
+          "stderr:"; Get-Content wt-err.txt -ErrorAction SilentlyContinue
+          if (Test-Path $out) { "v2: ok" } else { "v2: no result" }
+      - name: event log
+        shell: pwsh
+        run: |
+          Get-WinEvent -LogName Application -MaxEvents 200 -ErrorAction SilentlyContinue |
+            Where-Object { $_.TimeCreated -gt (Get-Date).AddMinutes(-10) -and ($_.LevelDisplayName -eq 'Error' -or $_.Message -like '*Terminal*') } |
+            Select-Object TimeCreated, ProviderName, Id, @{n='Message';e={$_.Message.Substring(0, [Math]::Min(400, $_.Message.Length))}} |
+            Format-List | Out-String
