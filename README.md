@@ -75,10 +75,9 @@ the inverted foreground.
 
 ## Terminals
 
-One real query in each terminal, through `scripts/try-terminals.sh` (macOS)
-and `scripts/try-terminals-linux.sh` (Linux, run by the `terminals` workflow
-on GitHub's runners under Xvfb). The time is the whole exchange and mostly
-measures how fast the terminal answers.
+One real query in each terminal: macOS from a developer machine, Linux and
+Windows from the `terminals` workflow on GitHub's runners. The time is the
+whole exchange and mostly measures how fast the terminal answers.
 
 ### macOS 26.2
 
@@ -120,9 +119,16 @@ Ubuntu 24.04.4 LTS, GitHub runner, Xvfb with software rendering
 
 ### Windows
 
+Windows Server 2025 (10.0.26100), GitHub runner, `terminals` workflow
+(run 33686011217). Windows Terminal is the portable build of the latest
+release.
+
 | Terminal | Version | Answers OSC 10/11 | Time |
 | --- | --- | --- | --- |
-| Windows Terminal | 1.22 and later | yes, per its release notes | not yet measured |
+| Windows Terminal | 1.24 | yes | 21 ms |
+| conhost (legacy console) | 10.0.26100 | no: answers DA1 only, the variables stay unset | 32 ms |
+| mintty (Git for Windows) | 3.8.3 | no: silent | 13 ms |
+| Alacritty, WezTerm | Chocolatey packages | did not start on the runner | |
 
 ### Multiplexers
 
@@ -148,12 +154,14 @@ check in a pseudo-terminal: it plays the terminal's part, answers the queries
 like xterm would, and checks the output, that nothing is echoed back, that the
 tty mode is restored, and how long the exchange takes (Unix only).
 
-`scripts/try-terminals.sh` (macOS) runs one real query in every installed
-terminal emulator and prints what each one answered; that is where the table
-above comes from.
+`scripts/try-terminals.sh` (macOS), `scripts/try-terminals-linux.sh` and
+`scripts/try-terminals.ps1` (Windows) run one real query in every installed
+terminal emulator and print the tables above; the `terminals` workflow runs
+the Linux and Windows ones on GitHub's runners.
 
-The Windows implementation is written against the Win32 documentation and has
-not yet been run on a Windows machine.
+The Windows implementation is exercised for real by the `terminals` workflow
+(Windows Terminal on a Windows Server 2025 runner); the pty test itself is
+Unix only.
 
 ## License
 
