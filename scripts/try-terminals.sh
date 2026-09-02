@@ -1,5 +1,6 @@
 #!/bin/sh
-# Runs one real query in every installed terminal emulator (macOS).
+# Runs one real query in every installed terminal emulator (macOS) and prints
+# a markdown table (terminal, version, OS, answer, time).
 #
 # Each terminal is launched with ZDOTDIR pointing at a throwaway .zshrc that
 # runs scripts/probe-terminal.zsh once and exits, so no terminal needs a
@@ -18,13 +19,20 @@ cat > "$zdotdir/.zshrc" <<ZSHRC
 zsh '$PWD/scripts/probe-terminal.zsh' "\$TSI_NAME"
 exit
 ZSHRC
+os="macOS $(sw_vers -productVersion)"
+
+echo "| Terminal | Version | OS | Answers OSC 10/11 | Time |"
+echo "| --- | --- | --- | --- | --- |"
 
 try() { # try NAME APP
     name=$1 app=$2
-    if ! open -Ra "$app" 2>/dev/null; then
-        echo "$name: not installed"
+    path=$(mdfind "kMDItemKind == 'Application' && kMDItemDisplayName == '$app.app'" 2>/dev/null | head -1)
+    [ -n "$path" ] || path=$(find /Applications /System/Applications "$HOME/Applications" -maxdepth 2 -name "$app.app" 2>/dev/null | head -1)
+    if [ -z "$path" ]; then
+        echo "| $app | not installed | $os | | |"
         return
     fi
+    version=$(defaults read "$path/Contents/Info" CFBundleShortVersionString 2>/dev/null)
     if pgrep -qf "/$app.app/"; then was_running=yes; new=-n; else was_running=no; new=; fi
     if ! open $new -a "$app" --env ZDOTDIR="$zdotdir" --env TSI_NAME="$name"; then
         echo "$name: open failed"
@@ -34,10 +42,19 @@ try() { # try NAME APP
     while [ $i -lt 40 ] && [ ! -s "$results/$name.txt" ]; do sleep 0.5; i=$((i + 1)); done
     sleep 0.5
     [ "$was_running" = no ] && osascript -e "quit app \"$app\"" >/dev/null 2>&1
-    if [ -s "$results/$name.txt" ]; then
-        printf '%s: ' "$name"; sed -n '2,$p' "$results/$name.txt" | tr '\n' ' '; echo
+    file="$results/$name.txt"
+    if [ ! -s "$file" ]; then
+        echo "| $app | $version | $os | no result: the terminal did not run the probe | |"
+        return
+    fi
+    ms=$(sed -n 's/^ms=//p' "$file")
+    bg=$(sed -n "s/.*TERMINAL_BACKGROUND='\(#[0-9A-F]*\)'.*/\1/p" "$file")
+    fg=$(sed -n "s/.*TERMINAL_FOREGROUND='\(#[0-9A-F]*\)'.*/\1/p" "$file")
+    scheme=$(sed -n "s/.*TERMINAL_COLOR_SCHEME='\([a-z]*\)'.*/\1/p" "$file")
+    if [ -n "$bg" ]; then
+        echo "| $app | $version | $os | yes ($bg on $fg, $scheme) | $ms ms |"
     else
-        echo "$name: no result within 20 s"
+        echo "| $app | $version | $os | no (silent) | $ms ms |"
     fi
 }
 

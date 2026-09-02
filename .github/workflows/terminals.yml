@@ -1,0 +1,89 @@
+name: terminals
+
+# Runs one real query inside real terminal emulators, on GitHub's runners:
+# Linux terminals under Xvfb, and experimental attempts at Windows Terminal and
+# the macOS terminals. Each job writes its table to the run summary.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: linux terminals
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - run: cargo build --release --locked
+      - name: install terminals
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb dbus-bin dbus-x11 libgl1-mesa-dri mesa-utils \
+            xterm gnome-terminal konsole xfce4-terminal kitty alacritty terminator tilix \
+            rxvt-unicode stterm sakura lxterminal mate-terminal qterminal
+          curl -fsSL -o wezterm.deb \
+            https://github.com/wezterm/wezterm/releases/download/20240203-110809-5046fc22/wezterm-20240203-110809-5046fc22.Ubuntu22.04.deb
+          sudo apt-get install -y ./wezterm.deb || echo "::warning::wezterm did not install"
+      - name: probe
+        run: xvfb-run -a -s "-screen 0 1280x800x24" dbus-run-session -- scripts/try-terminals-linux.sh | tee terminals-linux.md
+        timeout-minutes: 10
+      - run: cat terminals-linux.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: terminals-linux
+          path: terminals-linux.md
+
+  macos:
+    name: macos terminals (experimental)
+    runs-on: macos-15
+    continue-on-error: true
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - run: cargo build --release --locked
+      - run: brew install --cask --no-quarantine iterm2 ghostty kitty wezterm rio contour hyper tabby || true
+      - name: probe
+        run: scripts/try-terminals.sh terminal iterm2 ghostty kitty wezterm rio contour hyper tabby | tee terminals-macos.md
+        timeout-minutes: 10
+      - run: cat terminals-macos.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: terminals-macos
+          path: terminals-macos.md
+
+  windows-terminal:
+    name: windows terminal (experimental)
+    runs-on: windows-2025
+    continue-on-error: true
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - run: cargo build --release --locked
+      - name: install Windows Terminal (portable build)
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod https://api.github.com/repos/microsoft/terminal/releases/latest -Headers @{ Authorization = "Bearer ${{ github.token }}" }
+          $asset = $release.assets | Where-Object { $_.name -like 'Microsoft.WindowsTerminal_*_x64.zip' } | Select-Object -First 1
+          if (-not $asset) { throw "no portable x64 zip in release $($release.tag_name)" }
+          Invoke-WebRequest $asset.browser_download_url -OutFile wt.zip
+          Expand-Archive wt.zip -DestinationPath wt
+          $wt = (Get-ChildItem wt -Recurse -Filter wt.exe | Select-Object -First 1).FullName
+          New-Item -ItemType File -Path (Join-Path (Split-Path $wt) '.portable') | Out-Null
+          "WT=$wt" >> $env:GITHUB_ENV
+          "WT_VERSION=$($release.tag_name)" >> $env:GITHUB_ENV
+      - name: probe
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          $out = Join-Path $PWD 'wt-result.txt'
+          $bin = Join-Path $PWD 'target\release\terminal-scheme-info.exe'
+          $inner = "`$sw = [Diagnostics.Stopwatch]::StartNew(); `$r = & '$bin' query powershell 2>&1; `$sw.Stop(); Set-Content -Path '$out' -Value ((`$r -join ' ') + ' ms=' + `$sw.ElapsedMilliseconds)"
+          Start-Process -FilePath $env:WT -ArgumentList @('-w', '0', 'new-tab', '--', 'pwsh', '-NoProfile', '-Command', $inner)
+          $deadline = (Get-Date).AddSeconds(40)
+          while (-not (Test-Path $out) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+          $os = Get-CimInstance Win32_OperatingSystem
+          $answer = if (Test-Path $out) { (Get-Content $out) -join ' ' } else { 'no result: the terminal did not run the probe' }
+          $row = "| Windows Terminal | $env:WT_VERSION | $($os.Caption) $($os.Version) | $answer |"
+          $row
+          "| Terminal | Version | OS | Result |`n| --- | --- | --- | --- |`n$row" >> $env:GITHUB_STEP_SUMMARY
