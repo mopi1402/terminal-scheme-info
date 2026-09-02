@@ -27,7 +27,16 @@ without knowing anything about terminals.
 
 ## Install
 
-Add the line to your shell startup file:
+Download the binary for your platform from the
+[releases page](https://github.com/mopi1402/terminal-scheme-info/releases)
+(Linux x86_64 and aarch64, static; macOS Intel and Apple silicon; Windows
+x86_64 and arm64), put it somewhere on your `PATH`, or build it yourself:
+
+```sh
+cargo install --path .
+```
+
+Then add the line to your shell startup file:
 
 ```sh
 terminal-scheme-info install            # detects the shell from $SHELL

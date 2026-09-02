@@ -1,0 +1,80 @@
+name: release
+
+# Pushing a tag `vX.Y.Z` builds the six binaries, packages them with the
+# README and LICENSE, and publishes a GitHub release with a SHA256SUMS file.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    name: tag matches Cargo.toml
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          test "v$version" = "$GITHUB_REF_NAME" || {
+            echo "tag $GITHUB_REF_NAME does not match Cargo.toml version $version" >&2
+            exit 1
+          }
+
+  build:
+    name: ${{ matrix.target }}
+    needs: check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-musl,  os: ubuntu-24.04 }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm }
+          - { target: x86_64-apple-darwin,        os: macos-15 }
+          - { target: aarch64-apple-darwin,       os: macos-15 }
+          - { target: x86_64-pc-windows-msvc,     os: windows-2025 }
+          - { target: aarch64-pc-windows-msvc,    os: windows-2025 }
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup target add ${{ matrix.target }}
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: package
+        shell: bash
+        run: |
+          set -eu
+          name=terminal-scheme-info
+          dir="$name-${GITHUB_REF_NAME#v}-${{ matrix.target }}"
+          mkdir "$dir"
+          cp README.md LICENSE "$dir"
+          case "${{ matrix.target }}" in
+            *windows*)
+              cp "target/${{ matrix.target }}/release/$name.exe" "$dir"
+              7z a "$dir.zip" "$dir" ;;
+            *)
+              cp "target/${{ matrix.target }}/release/$name" "$dir"
+              tar czf "$dir.tar.gz" "$dir" ;;
+          esac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            terminal-scheme-info-*.tar.gz
+            terminal-scheme-info-*.zip
+          if-no-files-found: error
+
+  publish:
+    name: github release
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: cd dist && sha256sum * > SHA256SUMS
+      - run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

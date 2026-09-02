@@ -37,7 +37,7 @@ const O_RDWR: c_int = 2;
 const F_SETFD: c_int = 2;
 const FD_CLOEXEC: c_int = 1;
 
-#[cfg_attr(target_os = "linux", link(name = "util"))]
+#[cfg_attr(all(target_os = "linux", target_env = "gnu"), link(name = "util"))]
 unsafe extern "C" {
     fn openpty(
         master: *mut c_int,
@@ -267,8 +267,19 @@ fn scenarios() -> Vec<Scenario> {
     ]
 }
 
+/// Every wait in here is bounded to a couple of seconds; a hang is a bug, and
+/// a hung test is worse than a failed one.
+fn arm_watchdog(limit: Duration) {
+    std::thread::spawn(move || {
+        std::thread::sleep(limit);
+        eprintln!("watchdog: still running after {limit:?}, aborting");
+        std::process::exit(101);
+    });
+}
+
 #[test]
 fn behaves_like_a_terminal_would_expect() {
+    arm_watchdog(Duration::from_secs(30));
     let mut failures = Vec::new();
     for scenario in scenarios() {
         let run = run(&scenario).unwrap_or_else(|err| panic!("{}: {err}", scenario.name));
