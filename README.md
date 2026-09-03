@@ -29,8 +29,8 @@ without knowing anything about terminals.
 
 ```sh
 brew install mopi1402/tap/terminal-scheme-info        # macOS, Linux
+cargo install terminal-scheme-info                     # anywhere Rust is installed
 curl -fsSL https://raw.githubusercontent.com/mopi1402/terminal-scheme-info/main/install.sh | sh   # any Unix
-cargo install --path .                                 # from a checkout
 ```
 
 ```powershell
